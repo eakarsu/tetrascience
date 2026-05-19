@@ -28,6 +28,7 @@ import TenantManagementPage from './pages/TenantManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import AIResearchToolsPage from './pages/AIResearchToolsPage';
 import ResearchOpsPage from './pages/ResearchOpsPage';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -87,6 +88,7 @@ function App() {
               <Route path="/users" element={<UserManagementPage />} />
               <Route path="/ai-research-tools" element={<AIResearchToolsPage />} />
               <Route path="/research-ops" element={<ResearchOpsPage />} />
+              <Route path="/custom-views" element={<CustomViewsPage />} />
                   {/* === Batch 11 Gaps & Frontend Mounts === */}
         <Route path="/gap/literature-mining" element={<GapLiteratureMiningPage />} />
         <Route path="/gap/similar-compounds" element={<GapSimilarCompoundsPage />} />

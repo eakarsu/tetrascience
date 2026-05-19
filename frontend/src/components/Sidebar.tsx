@@ -63,6 +63,12 @@ const navGroups = [
     ],
   },
   {
+    label: 'Lab Views',
+    items: [
+      { path: '/custom-views', label: 'Lab Views', icon: FlaskConical },
+    ],
+  },
+  {
     label: 'Administration',
     items: [
       { path: '/compliance', label: 'Compliance', icon: ShieldCheck },

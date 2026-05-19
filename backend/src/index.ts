@@ -51,6 +51,7 @@ app.use('/api/tenants', authMiddleware, tenantsRoutes);
 app.use('/api/users', authMiddleware, usersRoutes);
 app.use('/api/ai', authMiddleware, aiRoutes);
 app.use('/api/ai-extras', authMiddleware, require('./routes/aiExtras').default);
+app.use('/api/custom-views', require('./routes/customViews'));
 
 async function start() {
   try {
