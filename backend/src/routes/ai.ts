@@ -467,4 +467,326 @@ Provide specific, actionable recommendations. Never expose or discuss password d
   }
 });
 
+// POST /literature-mining - recommend research literature for current context
+router.post('/literature-mining', async (req: AuthRequest, res: Response) => {
+  try {
+    const { topic, context, sources } = req.body;
+    if (!topic) {
+      res.status(400).json({ error: 'topic is required' });
+      return;
+    }
+    const systemPrompt = `You are a scientific literature analyst. Suggest relevant publications and research directions for the given topic and experimental context. Note that you are recommending search queries and themes (you do not have live access to PubMed/bioRxiv). Output sections: Suggested Search Queries, Likely Relevant Authors/Groups, Key Topics/Themes, Potential Contradictions To Investigate, Recommended Next Steps.`;
+
+    const userPrompt = `Topic:\n${topic}\n\nExperimental Context:\n${JSON.stringify(context || {}, null, 2)}\n\nKnown sources to consider: ${JSON.stringify(sources || ['PubMed', 'bioRxiv', 'ChemRxiv'])}\n\nProduce literature mining recommendations.`;
+
+    const result = await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt);
+    res.json({ response: result.text, model: result.model });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to mine literature', details: error.message });
+  }
+});
+
+// POST /similar-compounds - suggest similar compounds and pharmacological profile differences
+router.post('/similar-compounds', async (req: AuthRequest, res: Response) => {
+  try {
+    const { moleculeId, name, smiles, properties } = req.body;
+    let moleculeData: any;
+
+    if (moleculeId) {
+      const molecule = await Molecule.findByPk(moleculeId);
+      if (!molecule) {
+        res.status(404).json({ error: 'Molecule not found' });
+        return;
+      }
+      moleculeData = molecule.toJSON();
+    } else {
+      moleculeData = { name, smiles, properties };
+    }
+
+    const systemPrompt = `You are a medicinal chemist. Given a molecule, suggest structurally and pharmacologically similar compounds that may share or differ in mechanism. Discuss likely shared targets, scaffolds, side-effect risk, and ADMET differences. State assumptions and note that you do not have live access to chemical databases. Output sections: Similar Scaffold Candidates, Pharmacological Comparison, Potential Off-Target Concerns, Suggested Database Queries.`;
+
+    const result = await callOpenRouter(
+      [{ role: 'user', content: `Find similar compounds for:\n${JSON.stringify(moleculeData, null, 2)}` }],
+      systemPrompt
+    );
+    res.json({ response: result.text, model: result.model });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to find similar compounds', details: error.message });
+  }
+});
+
+// POST /collaboration-suggestion - suggest researcher collaboration matches
+router.post('/collaboration-suggestion', async (req: AuthRequest, res: Response) => {
+  try {
+    const { researcherProfile, targetTopic, network } = req.body;
+    if (!researcherProfile) {
+      res.status(400).json({ error: 'researcherProfile is required' });
+      return;
+    }
+    const systemPrompt = `You are a research collaboration broker. Given a researcher profile and a topic of interest, suggest the type of collaborators they should seek (skill profiles, institutional types, geographic considerations) and how to approach them. Output sections: Ideal Collaborator Profiles, Skill Gaps To Fill, Suggested Outreach Templates, Risks/Conflicts To Watch.`;
+
+    const userPrompt = `Researcher Profile:\n${JSON.stringify(researcherProfile, null, 2)}\n\nTarget Topic: ${targetTopic || 'unspecified'}\n\nKnown Network:\n${JSON.stringify(network || [], null, 2)}\n\nProduce collaboration recommendations.`;
+
+    const result = await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt);
+    res.json({ response: result.text, model: result.model });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to generate collaboration suggestions', details: error.message });
+  }
+});
+
+// POST /multi-modal-data-fusion - synthesize insights across heterogeneous modalities
+router.post('/multi-modal-data-fusion', async (req: AuthRequest, res: Response) => {
+  try {
+    if (!process.env.OPENROUTER_API_KEY) {
+      res.status(503).json({ error: 'AI not configured. Set OPENROUTER_API_KEY to enable AI features.' });
+      return;
+    }
+    const { moleculeId, assayIds, documentIds, instrumentIds, freeFormContext } = req.body || {};
+
+    let molecule: any = null;
+    if (moleculeId) {
+      const m = await Molecule.findByPk(moleculeId);
+      if (m) molecule = m.toJSON();
+    }
+
+    let assays: any[] = [];
+    if (Array.isArray(assayIds) && assayIds.length) {
+      const rows = await AssayResult.findAll({ where: { id: { [Op.in]: assayIds } } });
+      assays = rows.map((r: any) => r.toJSON());
+    }
+
+    let documents: any[] = [];
+    if (Array.isArray(documentIds) && documentIds.length) {
+      const rows = await Document.findAll({ where: { id: { [Op.in]: documentIds } } });
+      documents = rows.map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        documentType: d.documentType,
+        authors: d.authors,
+        contentSnippet: (d.content || '').slice(0, 1500),
+      }));
+    }
+
+    let instruments: any[] = [];
+    if (Array.isArray(instrumentIds) && instrumentIds.length) {
+      const rows = await Instrument.findAll({ where: { id: { [Op.in]: instrumentIds } } });
+      instruments = rows.map((i: any) => i.toJSON());
+    }
+
+    const systemPrompt = `You are a multi-modal data fusion analyst for life-sciences research. Integrate evidence across molecule structure, assay results, literature/documents, and instrument metadata to produce unified, prioritized scientific insights. State assumptions; do not invent values not present in the input. Output sections: Cross-Modal Findings, Convergent Evidence, Conflicting Evidence, Open Questions, Recommended Next Experiments, Confidence Assessment (Low/Medium/High with rationale).`;
+
+    const userPrompt = `Fuse the following multi-modal evidence:
+
+Molecule:
+${molecule ? JSON.stringify(molecule, null, 2) : '(none provided)'}
+
+Assay results (${assays.length}):
+${assays.length ? JSON.stringify(assays, null, 2) : '(none provided)'}
+
+Documents (${documents.length}):
+${documents.length ? JSON.stringify(documents, null, 2) : '(none provided)'}
+
+Instruments (${instruments.length}):
+${instruments.length ? JSON.stringify(instruments, null, 2) : '(none provided)'}
+
+Free-form context:
+${freeFormContext || '(none)'}`;
+
+    const result = await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt);
+    res.json({ response: result.text, model: result.model });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed multi-modal fusion', details: error.message });
+  }
+});
+
+// =====================================================================
+// Apply pass 5: backlog endpoints (additive only, cap=10/project)
+// Required env vars (per integration; absent => 503 + missing field):
+//   OPENROUTER_API_KEY  - existing AI endpoints
+//   PUBCHEM_API_KEY     - /pubchem-lookup (PubChem PUG-REST is free but if a
+//                          gateway/key is configured it is required here)
+// PRODUCT-DECISION:
+//   - ELN entries use a single `eln_entries` table with JSONB payload to avoid
+//     committing to a final schema. CREATE TABLE IF NOT EXISTS keeps it additive.
+//   - Data lineage stored as edges in `data_lineage_edges` (parent_type, parent_id,
+//     child_type, child_id, transform). Simple, reversible.
+//   - Comments use `entity_comments` (entity_type, entity_id, body). Resolves
+//     "comment/collaboration on results" without affecting existing tables.
+//   - Bulk import is synchronous JSON-array ingest into `bulk_import_jobs`
+//     and per-row staging; production async pipeline deferred.
+//   - Publication readiness is AI-only (no external journal API).
+// =====================================================================
+
+async function ensureExtraTables(): Promise<void> {
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS eln_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      title TEXT NOT NULL,
+      payload JSONB NOT NULL,
+      tags TEXT[],
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS data_lineage_edges (
+      id SERIAL PRIMARY KEY,
+      parent_type TEXT NOT NULL,
+      parent_id TEXT NOT NULL,
+      child_type TEXT NOT NULL,
+      child_id TEXT NOT NULL,
+      transform TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS entity_comments (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS bulk_import_jobs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      target_type TEXT NOT NULL,
+      total_rows INTEGER NOT NULL,
+      payload JSONB NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+// Best-effort table init (silent on error so existing endpoints keep working)
+ensureExtraTables().catch(() => {});
+
+// POST /api/ai/eln-entry - create / list ELN entries
+router.post('/eln-entry', async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, payload, tags } = req.body || {};
+    if (!title || !payload) {
+      res.status(400).json({ error: 'title and payload are required' });
+      return;
+    }
+    const userId = (req as any).user?.id || null;
+    const [rows] = await sequelize.query(
+      `INSERT INTO eln_entries (user_id, title, payload, tags) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
+      { bind: [userId, title, JSON.stringify(payload), Array.isArray(tags) ? tags : null] }
+    );
+    res.json({ entry: (rows as any[])[0], note: 'ELN entry persisted in eln_entries (JSONB payload).' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create ELN entry', details: error.message });
+  }
+});
+
+// POST /api/ai/data-lineage - record a lineage edge between two entities
+router.post('/data-lineage', async (req: AuthRequest, res: Response) => {
+  try {
+    const { parent_type, parent_id, child_type, child_id, transform } = req.body || {};
+    if (!parent_type || !parent_id || !child_type || !child_id) {
+      res.status(400).json({ error: 'parent_type, parent_id, child_type, child_id are required' });
+      return;
+    }
+    const [rows] = await sequelize.query(
+      `INSERT INTO data_lineage_edges (parent_type, parent_id, child_type, child_id, transform) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`,
+      { bind: [String(parent_type), String(parent_id), String(child_type), String(child_id), transform || null] }
+    );
+    res.json({ edge: (rows as any[])[0] });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to record lineage edge', details: error.message });
+  }
+});
+
+// POST /api/ai/bulk-import - queue a bulk import job
+router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
+  try {
+    const { target_type, rows } = req.body || {};
+    if (!target_type || !Array.isArray(rows)) {
+      res.status(400).json({ error: 'target_type and rows[] are required' });
+      return;
+    }
+    const userId = (req as any).user?.id || null;
+    const [r] = await sequelize.query(
+      `INSERT INTO bulk_import_jobs (user_id, target_type, total_rows, payload) VALUES ($1, $2, $3, $4) RETURNING id, status, created_at`,
+      { bind: [userId, String(target_type), rows.length, JSON.stringify(rows)] }
+    );
+    res.json({ job: (r as any[])[0], note: 'Bulk import job queued; external worker performs the load.' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to queue bulk import', details: error.message });
+  }
+});
+
+// POST /api/ai/comment - create a comment on any entity (collaboration)
+router.post('/comment', async (req: AuthRequest, res: Response) => {
+  try {
+    const { entity_type, entity_id, body } = req.body || {};
+    if (!entity_type || !entity_id || !body) {
+      res.status(400).json({ error: 'entity_type, entity_id and body are required' });
+      return;
+    }
+    const userId = (req as any).user?.id || null;
+    const [rows] = await sequelize.query(
+      `INSERT INTO entity_comments (user_id, entity_type, entity_id, body) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
+      { bind: [userId, String(entity_type), String(entity_id), String(body).slice(0, 4000)] }
+    );
+    res.json({ comment: (rows as any[])[0] });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create comment', details: error.message });
+  }
+});
+
+// POST /api/ai/publication-readiness - AI-only readiness checker
+router.post('/publication-readiness', async (req: AuthRequest, res: Response) => {
+  try {
+    if (!process.env.OPENROUTER_API_KEY) {
+      res.status(503).json({ error: 'AI not configured', missing: 'OPENROUTER_API_KEY' });
+      return;
+    }
+    const { manuscript_text, target_journal, study_type } = req.body || {};
+    if (!manuscript_text) {
+      res.status(400).json({ error: 'manuscript_text is required' });
+      return;
+    }
+    const systemPrompt = `You are a journal-readiness reviewer for life-sciences manuscripts. Score the manuscript on completeness, methodological rigor, statistical reporting, ethics/consent, data availability, figures/tables, and reproducibility. Return JSON: {"overall_readiness_score":0-100,"section_scores":{"introduction":0,"methods":0,"results":0,"discussion":0,"references":0,"figures_tables":0,"data_availability":0,"ethics_consent":0},"top_blockers":["<string>"],"recommended_target_journal_fit":"<string>","priority_fixes":["<string>"]}`;
+    const userPrompt = `Target journal: ${target_journal || 'unspecified'}\nStudy type: ${study_type || 'unspecified'}\n\nManuscript:\n"""\n${String(manuscript_text).slice(0, 12000)}\n"""`;
+    const result = await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt);
+    res.json({ response: result.text, model: result.model });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed publication readiness', details: error.message });
+  }
+});
+
+// POST /api/ai/pubchem-lookup - PubChem CID/property lookup (free, optional gateway key)
+router.post('/pubchem-lookup', async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, cid, smiles } = req.body || {};
+    if (!name && !cid && !smiles) {
+      res.status(400).json({ error: 'name, cid or smiles is required' });
+      return;
+    }
+    // PRODUCT-DECISION: PubChem PUG-REST is free; if PUBCHEM_API_KEY is set we
+    // honour it as a gateway header. Endpoint shape is intentionally narrow.
+    let url = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/';
+    if (cid) url += `cid/${encodeURIComponent(String(cid))}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IUPACName/JSON`;
+    else if (name) url += `name/${encodeURIComponent(String(name))}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IUPACName/JSON`;
+    else url += `smiles/${encodeURIComponent(String(smiles))}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IUPACName/JSON`;
+    const headers: Record<string, string> = {};
+    if (process.env.PUBCHEM_API_KEY) headers['x-api-key'] = process.env.PUBCHEM_API_KEY;
+    const r = await fetch(url, { headers });
+    if (!r.ok) {
+      res.status(502).json({ error: 'Upstream PubChem error', status: r.status });
+      return;
+    }
+    const json = await r.json();
+    res.json({ source: 'pubchem', result: json });
+  } catch (error: any) {
+    res.status(500).json({ error: 'PubChem lookup failed', details: error.message });
+  }
+});
+
 export default router;

@@ -16,6 +16,7 @@ import {
   Users,
   LogOut,
   LayoutDashboard,
+  Sparkles,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -52,6 +53,19 @@ const navGroups = [
       { path: '/pipelines', label: 'Pipelines', icon: Workflow },
       { path: '/instruments', label: 'Instruments', icon: Radio },
       { path: '/search-analytics', label: 'Search Analytics', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'AI Tools',
+    items: [
+      { path: '/ai-research-tools', label: 'AI Research Tools', icon: Sparkles },
+      { path: '/research-ops', label: 'Research Ops', icon: Sparkles },
+    ],
+  },
+  {
+    label: 'Lab Views',
+    items: [
+      { path: '/custom-views', label: 'Lab Views', icon: FlaskConical },
     ],
   },
   {

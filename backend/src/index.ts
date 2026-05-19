@@ -19,6 +19,7 @@ import auditTrailRoutes from './routes/auditTrail';
 import tenantsRoutes from './routes/tenants';
 import usersRoutes from './routes/users';
 import aiRoutes from './routes/ai';
+import gapFeaturesRouter from './routes/gap-features'; // === Batch 11 Gaps & Frontend Mounts ===
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -49,6 +50,8 @@ app.use('/api/audit-trail', authMiddleware, auditTrailRoutes);
 app.use('/api/tenants', authMiddleware, tenantsRoutes);
 app.use('/api/users', authMiddleware, usersRoutes);
 app.use('/api/ai', authMiddleware, aiRoutes);
+app.use('/api/ai-extras', authMiddleware, require('./routes/aiExtras').default);
+app.use('/api/custom-views', require('./routes/customViews'));
 
 async function start() {
   try {
@@ -57,7 +60,8 @@ async function start() {
     await sequelize.sync();
     console.log('Database models synchronized.');
 
-    app.listen(PORT, () => {
+    app.use('/api', gapFeaturesRouter); // === Batch 11 Gaps & Frontend Mounts ===
+app.listen(PORT, () => {
       console.log(`TetraScience backend running on port ${PORT}`);
     });
   } catch (error) {
