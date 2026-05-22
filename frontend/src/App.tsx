@@ -30,6 +30,9 @@ import AIResearchToolsPage from './pages/AIResearchToolsPage';
 import ResearchOpsPage from './pages/ResearchOpsPage';
 import CustomViewsPage from './pages/CustomViewsPage';
 
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
 function App() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -73,6 +76,9 @@ function App() {
         <main className="flex-1 ml-64">
           <div className="p-6">
             <Routes>
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
               <Route path="/" element={<Dashboard user={user} />} />
               <Route path="/molecules" element={<MolecularSearchPage />} />
               <Route path="/assays" element={<AssayResultsPage />} />
