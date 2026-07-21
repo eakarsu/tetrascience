@@ -1,0 +1,5 @@
+import { digest } from '../../src/core/domain'; import { verifyAuditRows } from '../../src/core/audit';
+const tenantId='11111111-1111-4111-8111-111111111111'; const occurredAt='2026-07-20T12:00:00.000Z';
+function row(sequence:number,previousHash:string,eventData:any){const base={tenantId,sequence,eventType:'TEST',entityType:'RUN',entityId:null,actorUserId:null,requestId:null,eventData,previousHash,occurredAt};return{tenant_id:tenantId,tenant_sequence:String(sequence),event_type:'TEST',entity_type:'RUN',entity_id:null,actor_user_id:null,request_id:null,event_data:eventData,previous_hash:previousHash,event_hash:digest(base),occurred_at:occurredAt};}
+test('verifies an ordered audit hash chain',()=>{const first=row(1,'0'.repeat(64),{value:1});const second=row(2,first.event_hash,{value:2});expect(verifyAuditRows([first,second])).toEqual({valid:true});});
+test('locates tampered audit evidence',()=>{const first=row(1,'0'.repeat(64),{value:1});expect(verifyAuditRows([{...first,event_data:{value:999}}])).toEqual({valid:false,brokenAt:1});});

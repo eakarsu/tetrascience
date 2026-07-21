@@ -1,0 +1,13 @@
+DROP FUNCTION IF EXISTS tsc_prevent_evidence_mutation() CASCADE;
+DROP TABLE IF EXISTS tsc_audit_events;
+DROP TABLE IF EXISTS tsc_state_transitions;
+DROP TABLE IF EXISTS tsc_review_decisions;
+DROP TABLE IF EXISTS tsc_validation_findings;
+DROP TABLE IF EXISTS tsc_measurements;
+ALTER TABLE IF EXISTS tsc_ingestion_events DROP CONSTRAINT IF EXISTS tsc_ingestion_run_fk;
+DROP TABLE IF EXISTS tsc_assay_runs;
+DROP TABLE IF EXISTS tsc_ingestion_events;
+DROP TABLE IF EXISTS tsc_samples;
+DROP TABLE IF EXISTS tsc_instruments;
+DROP TABLE IF EXISTS tsc_users;
+DROP TABLE IF EXISTS tsc_tenants;

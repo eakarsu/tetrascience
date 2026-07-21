@@ -1,117 +1,31 @@
-// === Batch 11 Gaps & Frontend Mounts ===
-import GapLiteratureMiningPage from './pages/gap/GapLiteratureMiningPage'
-import GapSimilarCompoundsPage from './pages/gap/GapSimilarCompoundsPage'
-import GapCollaborationSuggesterPage from './pages/gap/GapCollaborationSuggesterPage'
-import GapExperimentRecommenderPage from './pages/gap/GapExperimentRecommenderPage'
-import GapElnAuthoringPage from './pages/gap/GapElnAuthoringPage'
-import GapDataVersioningPage from './pages/gap/GapDataVersioningPage'
-import GapExternalDbSyncPage from './pages/gap/GapExternalDbSyncPage'
-import GapAssayCollabPage from './pages/gap/GapAssayCollabPage'
-import GapBulkImportPage from './pages/gap/GapBulkImportPage'
-import GapRegulatorySubmissionPage from './pages/gap/GapRegulatorySubmissionPage'
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
-import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
-import MolecularSearchPage from './pages/MolecularSearchPage';
-import AssayResultsPage from './pages/AssayResultsPage';
-import DocumentSearchPage from './pages/DocumentSearchPage';
-import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
-import EntityResolutionPage from './pages/EntityResolutionPage';
-import PipelineMonitorPage from './pages/PipelineMonitorPage';
-import InstrumentManagerPage from './pages/InstrumentManagerPage';
-import SearchAnalyticsPage from './pages/SearchAnalyticsPage';
-import EmbeddingsManagerPage from './pages/EmbeddingsManagerPage';
-import ComplianceAuditPage from './pages/ComplianceAuditPage';
-import TenantManagementPage from './pages/TenantManagementPage';
-import UserManagementPage from './pages/UserManagementPage';
-import AIResearchToolsPage from './pages/AIResearchToolsPage';
-import ResearchOpsPage from './pages/ResearchOpsPage';
-import CustomViewsPage from './pages/CustomViewsPage';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, Beaker, CheckCircle2, Clock3, Database, FileCheck2, FlaskConical, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
+import { endpoints } from './services/api';
 
-import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
-import CodexOperationsFeature from './pages/CodexOperationsFeature';
+type User = { id: string; email: string; name: string; role: string; tenantId: string };
+type Dashboard = { counts: Record<string, number>; runs: any[]; instruments: any[]; samples: any[]; ingestions: any[] };
+const card = 'card';
 
-function App() {
-  const [user, setUser] = useState<any>(null);
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-  }, []);
-
-  const handleLogin = (userData: any, tokenData: string) => {
-    setUser(userData);
-    setToken(tokenData);
-    localStorage.setItem('token', tokenData);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  };
-
-  if (!token || !user) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
-  return (
-    <Router>
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar user={user} onLogout={handleLogout} />
-        <main className="flex-1 ml-64">
-          <div className="p-6">
-            <Routes>
-        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
-        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
-
-              <Route path="/" element={<Dashboard user={user} />} />
-              <Route path="/molecules" element={<MolecularSearchPage />} />
-              <Route path="/assays" element={<AssayResultsPage />} />
-              <Route path="/documents" element={<DocumentSearchPage />} />
-              <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
-              <Route path="/entities" element={<EntityResolutionPage />} />
-              <Route path="/pipelines" element={<PipelineMonitorPage />} />
-              <Route path="/instruments" element={<InstrumentManagerPage />} />
-              <Route path="/search-analytics" element={<SearchAnalyticsPage />} />
-              <Route path="/embeddings" element={<EmbeddingsManagerPage />} />
-              <Route path="/compliance" element={<ComplianceAuditPage />} />
-              <Route path="/tenants" element={<TenantManagementPage />} />
-              <Route path="/users" element={<UserManagementPage />} />
-              <Route path="/ai-research-tools" element={<AIResearchToolsPage />} />
-              <Route path="/research-ops" element={<ResearchOpsPage />} />
-              <Route path="/custom-views" element={<CustomViewsPage />} />
-                  {/* === Batch 11 Gaps & Frontend Mounts === */}
-        <Route path="/gap/literature-mining" element={<GapLiteratureMiningPage />} />
-        <Route path="/gap/similar-compounds" element={<GapSimilarCompoundsPage />} />
-        <Route path="/gap/collaboration-suggester" element={<GapCollaborationSuggesterPage />} />
-        <Route path="/gap/experiment-recommender" element={<GapExperimentRecommenderPage />} />
-        <Route path="/gap/eln-authoring" element={<GapElnAuthoringPage />} />
-        <Route path="/gap/data-versioning" element={<GapDataVersioningPage />} />
-        <Route path="/gap/external-db-sync" element={<GapExternalDbSyncPage />} />
-        <Route path="/gap/assay-collab" element={<GapAssayCollabPage />} />
-        <Route path="/gap/bulk-import" element={<GapBulkImportPage />} />
-        <Route path="/gap/regulatory-submission" element={<GapRegulatorySubmissionPage />} />
-      </Routes>
-          </div>
-        </main>
-      </div>
-    </Router>
-  );
+function Login({ onLogin }: { onLogin: (user: User, token: string) => void }) {
+  const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
+  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(''); try { const result=await endpoints.login(email,password); localStorage.setItem('token',result.token); localStorage.setItem('user',JSON.stringify(result.user)); onLogin(result.user,result.token); } catch(e){setError((e as Error).message);} finally{setBusy(false);} }
+  return <main className="login-shell"><section className="login-card"><div className="brand-mark"><FlaskConical/></div><h1>TetraScience Assay Release</h1><p>Validated instrument evidence, independent quality review, and tenant-scoped audit.</p><form onSubmit={submit}><label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="username"/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={12} required autoComplete="current-password"/></label>{error&&<div className="error">{error}</div>}<button disabled={busy}>{busy?'Signing in…':'Sign in'}</button></form><small>Accounts are provisioned by a tenant administrator. Demo credentials are disabled.</small></section></main>;
 }
 
-export default App;
+function ControlTower({ user, logout }: { user: User; logout: () => void }) {
+  const [data,setData]=useState<Dashboard|null>(null); const [selected,setSelected]=useState<any|null>(null); const [error,setError]=useState(''); const [busy,setBusy]=useState(false); const [password,setPassword]=useState(''); const [reason,setReason]=useState(''); const [audit,setAudit]=useState<any|null>(null);
+  const load=useCallback(async()=>{try{setError('');setData(await endpoints.dashboard());}catch(e){setError((e as Error).message);}},[]); useEffect(()=>{void load();},[load]);
+  async function inspect(id:string){setBusy(true);try{setSelected(await endpoints.evidence(id));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+  async function act(fn:()=>Promise<any>){setBusy(true);setError('');try{await fn();setSelected(null);setReason('');setPassword('');await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+  const counters=[['Runs','runs',Database],['Quarantined','quarantined',AlertTriangle],['Awaiting quality','awaiting_quality',Clock3],['Released','released',CheckCircle2],['Rejected packets','rejected_ingestions',Beaker]] as const;
+  return <div><header><div className="brand"><span><FlaskConical/></span><div><strong>TetraScience Assay Release</strong><small>Instrument packet → validation → scientist submission → quality release</small></div></div><div className="identity"><ShieldCheck/><span>{user.name}<small>{user.role.replaceAll('_',' ')}</small></span><button className="link" onClick={logout}><LogOut/>Sign out</button></div></header><main className="workspace"><div className="title-row"><div><h1>Assay evidence control tower</h1><p>Only persistent tenant data is shown. Validation and state changes are deterministic and auditable.</p></div><button className="secondary" onClick={()=>void load()}><RefreshCw/>Refresh</button></div>{error&&<div className="error">{error}</div>}<section className="counter-grid">{counters.map(([label,key,Icon])=><article className={card} key={key}><Icon/><b>{data?.counts[key]??'—'}</b><small>{label}</small></article>)}</section>
+    <section className="content-grid"><article className={card}><div className="section-title"><h2>Assay runs</h2><small>Open a run to inspect measurements, findings, signatures, and transitions.</small></div><div className="table-wrap"><table><thead><tr><th>Run</th><th>Assay</th><th>Instrument</th><th>Evidence</th><th>State</th></tr></thead><tbody>{data?.runs.map(run=><tr key={run.id} onClick={()=>void inspect(run.id)}><td><code>{run.external_run_key}</code><small>{new Date(run.captured_at).toLocaleString()}</small></td><td>{run.assay_type}<small>{run.protocol_id} v{run.protocol_version}</small></td><td>{run.instrument_name}</td><td>{run.measurement_count} rows<small>{run.error_count} blocking findings</small></td><td><span className={`pill ${run.state.toLowerCase()}`}>{run.state}</span></td></tr>)}</tbody></table></div></article>
+      <aside className={card}><div className="section-title"><h2>Source and calibration status</h2><small>Instrument-service identities are bound to tenant instruments.</small></div>{data?.instruments.map(item=><div className="list-row" key={item.id}><div><strong>{item.name}</strong><small>{item.source_system} / {item.external_key}</small></div><span className={new Date(item.calibration_due_at)<new Date()?'danger':'ok'}>{new Date(item.calibration_due_at)<new Date()?'Calibration expired':'Calibrated'}</span></div>)}<div className="section-title top"><h2>Audit chain</h2></div>{['TENANT_ADMIN','AUDITOR'].includes(user.role)?<button className="secondary" onClick={()=>{setBusy(true);endpoints.audit().then(setAudit).catch(e=>setError(e.message)).finally(()=>setBusy(false));}}><FileCheck2/>Verify chain</button>:<p className="muted">Auditor or tenant administrator access required.</p>}{audit&&<p className={audit.valid?'ok':'danger'}>{audit.valid?`Valid through ${audit.events} events`:`Broken at event ${audit.brokenAt}`}</p>}</aside></section>
+    <section className={card}><div className="section-title"><h2>Recent ingestion outcomes</h2></div><div className="ingestions">{data?.ingestions.map(item=><div key={item.id}><code>{item.source_system}/{item.source_record_id}</code><span>{item.status}{item.error_code?` · ${item.error_code}`:''}</span></div>)}</div></section></main>
+    {selected&&<div className="modal-backdrop" onMouseDown={()=>setSelected(null)}><section className="modal" onMouseDown={e=>e.stopPropagation()}><div className="title-row"><div><h2>{selected.run.external_run_key}</h2><p>{selected.run.assay_type} · {selected.run.instrument_name}</p></div><button className="link" onClick={()=>setSelected(null)}>Close</button></div><div className="evidence-grid"><div><h3>Validation findings</h3>{selected.findings.length?selected.findings.map((f:any)=><div className={`finding ${f.severity.toLowerCase()}`} key={f.id}><b>{f.code}</b><small>{f.message}</small></div>):<p className="ok">No validation findings.</p>}</div><div><h3>State history</h3>{selected.transitions.map((t:any)=><div className="history" key={t.id}><span>{t.from_state||'NEW'} → {t.to_state}</span><small>{t.reason}</small></div>)}</div></div><h3>Measurements</h3><div className="table-wrap compact"><table><thead><tr><th>Sample</th><th>Analyte</th><th>Value</th><th>Replicate</th></tr></thead><tbody>{selected.measurements.map((m:any)=><tr key={m.id}><td>{m.sample_code}</td><td>{m.analyte}</td><td>{m.value} {m.unit}</td><td>{m.replicate}</td></tr>)}</tbody></table></div>{selected.decisions.map((d:any)=><blockquote key={d.id}><b>{d.stage}: {d.decision}</b><p>{d.signature_statement}</p><small>{d.actor_name} · {new Date(d.decided_at).toLocaleString()} · {d.reason}</small></blockquote>)}
+      {user.role==='SCIENTIST'&&selected.run.state==='VALIDATED'&&<div className="decision"><h3>Submit for independent quality review</h3><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="Scientific rationale"/><button disabled={busy||!reason.trim()} onClick={()=>void act(()=>endpoints.submit(selected.run.id,{clientDecisionId:crypto.randomUUID(),reason}))}>Submit validated evidence</button></div>}
+      {user.role==='QUALITY_REVIEWER'&&selected.run.state==='SUBMITTED'&&<div className="decision"><h3>Electronic quality decision</h3><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="Quality review rationale"/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Re-enter password to sign"/><div><button disabled={busy||!reason.trim()||password.length<12} onClick={()=>void act(()=>endpoints.release(selected.run.id,{clientDecisionId:crypto.randomUUID(),decision:'APPROVE',reason,password}))}>Sign and release</button><button className="danger-button" disabled={busy||!reason.trim()||password.length<12} onClick={()=>void act(()=>endpoints.release(selected.run.id,{clientDecisionId:crypto.randomUUID(),decision:'REJECT',reason,password}))}>Sign and reject</button></div></div>}</section></div>}
+  </div>;
+}
+
+export default function App(){const saved=localStorage.getItem('user');const [user,setUser]=useState<User|null>(()=>{try{return saved?JSON.parse(saved):null}catch{return null}});const [token,setToken]=useState(localStorage.getItem('token'));if(!user||!token)return <Login onLogin={(next,nextToken)=>{setUser(next);setToken(nextToken);}}/>;return <ControlTower user={user} logout={()=>{localStorage.clear();setUser(null);setToken(null);}}/>;}

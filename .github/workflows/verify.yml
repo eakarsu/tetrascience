@@ -1,0 +1,45 @@
+name: verify
+on: [push, pull_request]
+permissions: { contents: read }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: tetrascience, POSTGRES_PASSWORD: "ci-${{ github.run_id }}-${{ github.run_attempt }}-database-password", POSTGRES_DB: tetrascience_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tetrascience" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://tetrascience:ci-${{ github.run_id }}-${{ github.run_attempt }}-database-password@localhost:5432/tetrascience_test
+      JWT_SECRET: ci-${{ github.run_id }}-${{ github.run_attempt }}-secret-with-at-least-thirty-two-characters
+      CORS_ORIGINS: http://localhost:3001
+      MAX_SOURCE_FUTURE_SECONDS: 300
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: "**/package-lock.json" }
+      - run: npm ci
+        working-directory: backend
+      - name: Prove reversible migration
+        run: npm run migrate && npm run migrate:down && npm run migrate
+        working-directory: backend
+      - run: npm run build && npm run test:unit -- --coverage && npm run test:integration && npm run test:e2e
+        working-directory: backend
+      - run: npm audit --audit-level=low
+        working-directory: backend
+      - name: Prove backup restore
+        run: |
+          mkdir -p "$RUNNER_TEMP/tetrascience-backup"
+          BACKUP_DATABASE_URL="$DATABASE_URL" BACKUP_OUTPUT_DIR="$RUNNER_TEMP/tetrascience-backup" backend/scripts/backup.sh
+          PGPASSWORD=ci-${{ github.run_id }}-${{ github.run_attempt }}-database-password createdb -h localhost -U tetrascience tetrascience_restore_check
+          archive=$(find "$RUNNER_TEMP/tetrascience-backup" -name '*.dump' -print -quit)
+          SOURCE_DATABASE_URL="$DATABASE_URL" RESTORE_DATABASE_URL=postgresql://tetrascience:ci-${{ github.run_id }}-${{ github.run_attempt }}-database-password@localhost:5432/tetrascience_restore_check backend/scripts/verify-backup.sh "$archive"
+      - run: npm ci && npm run build && npm audit --audit-level=low
+        working-directory: frontend
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+      - run: docker build -t tetrascience-api ./backend && docker build -t tetrascience-ui ./frontend
