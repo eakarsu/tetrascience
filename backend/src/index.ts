@@ -9,6 +9,7 @@ import { csv, validateRuntime } from './core/runtime';
 import { AuthRequest } from './middleware/auth';
 import authRoutes from './routes/auth';
 import workflowRoutes from './routes/assayWorkflow';
+import runtimeAiRoutes from './routes/runtimeAi';
 
 export function createApp() {
   validateRuntime(); const app = express(); const origins = csv('CORS_ORIGINS');
@@ -19,7 +20,7 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'tetrascience-assay-release' }));
   app.get('/api/ready', async (_req, res) => { try { await db.query('SELECT 1 FROM tetrascience_migrations LIMIT 1'); res.json({ status: 'ready' }); } catch { res.status(503).json({ status: 'not_ready' }); } });
   app.get('/api/metrics', (_req, res) => res.json(metrics.snapshot()));
-  app.use('/api/auth', authRoutes); app.use('/api/assay-workflow', workflowRoutes);
+  app.use('/api/auth', authRoutes); app.use('/api/assay-workflow', workflowRoutes); app.use('/api/runtime-ai', runtimeAiRoutes);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unsupported API route' } }));
   app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof DomainError) { res.status(error.status).json({ error: { code: error.code, message: error.message, details: error.details, eventId: error.eventId } }); return; }

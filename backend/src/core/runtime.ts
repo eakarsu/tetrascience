@@ -11,6 +11,10 @@ export function numeric(name: string, fallback: number, min: number, max: number
 }
 export function validateRuntime(): void {
   required('JWT_SECRET', 32);
+  required('OPENROUTER_API_KEY', 20);
+  required('OPENROUTER_MODEL');
+  const openRouterBaseUrl = required('OPENROUTER_BASE_URL');
+  if (openRouterBaseUrl !== 'https://openrouter.ai/api/v1') throw new Error('OPENROUTER_BASE_URL must be https://openrouter.ai/api/v1');
   if (process.env.NODE_ENV === 'production') {
     required('DATABASE_URL'); const origins = csv('CORS_ORIGINS');
     if (!origins.length || origins.includes('*')) throw new Error('CORS_ORIGINS must contain explicit production origins');
