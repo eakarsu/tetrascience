@@ -1,4 +1,6 @@
 const { spawnSync } = require('node:child_process');
+const path = require('node:path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
 
 function requireDisposableRuntime() {
   if (process.env.NODE_ENV !== 'test' || process.env.ALLOW_DISPOSABLE_SEED !== 'YES') {

@@ -24,10 +24,6 @@ fi
 demo_credentials_email=""
 demo_credentials_password=""
 demo_credentials_tenant="${DEMO_TENANT:-${BOOTSTRAP_TENANT_SLUG:-${GOVERNANCE_TENANT_ID:-${TENANT_ID:-}}}}"
-demo_credentials_tenant="${DEMO_TENANT:-${BOOTSTRAP_TENANT_SLUG:-${GOVERNANCE_TENANT_ID:-${TENANT_ID:-}}}}"
-demo_credentials_tenant="${DEMO_TENANT:-${BOOTSTRAP_TENANT_SLUG:-${GOVERNANCE_TENANT_ID:-${TENANT_ID:-}}}}"
-demo_credentials_tenant="${DEMO_TENANT:-${BOOTSTRAP_TENANT_SLUG:-${GOVERNANCE_TENANT_ID:-${TENANT_ID:-}}}}"
-demo_credentials_tenant="${DEMO_TENANT:-${BOOTSTRAP_TENANT_SLUG:-${GOVERNANCE_TENANT_ID:-${TENANT_ID:-}}}}"
 if [ -n "${PROVISION_ADMIN_EMAIL:-}" ] && [ -n "${PROVISION_ADMIN_PASSWORD:-}" ]; then
   demo_credentials_email="$PROVISION_ADMIN_EMAIL"
   demo_credentials_password="$PROVISION_ADMIN_PASSWORD"
@@ -81,6 +77,10 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$project_dir"
 for dependency_dir in backend/node_modules frontend/node_modules; do
   [[ -d "$dependency_dir" ]] || { echo "Missing $dependency_dir; install locked dependencies before startup." >&2; exit 1; }
 done
+if [ "${NODE_ENV:-development}" != production ] && [ "${ENABLE_DEMO_CREDENTIAL_AUTOFILL:-true}" = true ]; then
+  npm --prefix backend run migrate
+  NODE_ENV=test ALLOW_DISPOSABLE_SEED=YES node backend/scripts/create-admin.js
+fi
 [[ -f backend/dist/index.js ]] || { echo "Missing backend/dist; run the backend production build before startup." >&2; exit 1; }
 [[ -d frontend/dist ]] || { echo "Missing frontend/dist; run the frontend production build before startup." >&2; exit 1; }
 node -e "require('./backend/node_modules/dotenv').config({path:'.env',quiet:true}); const r=require('./backend/dist/core/runtime'); r.validateRuntime(); if(!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required')"
