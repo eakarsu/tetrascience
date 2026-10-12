@@ -77,6 +77,8 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$project_dir"
 for dependency_dir in backend/node_modules frontend/node_modules; do
   [[ -d "$dependency_dir" ]] || { echo "Missing $dependency_dir; install locked dependencies before startup." >&2; exit 1; }
 done
+# Compile the native handlers before launching the production entry point.
+npm --prefix backend run build
 if [ "${NODE_ENV:-development}" != production ] && [ "${ENABLE_DEMO_CREDENTIAL_AUTOFILL:-true}" = true ]; then
   npm --prefix backend run migrate
   NODE_ENV=test ALLOW_DISPOSABLE_SEED=YES node backend/scripts/create-admin.js

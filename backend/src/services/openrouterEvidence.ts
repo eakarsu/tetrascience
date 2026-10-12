@@ -1,4 +1,4 @@
-import { required } from '../core/runtime';
+import { DomainError } from '../core/domain';
 
 export interface OpenRouterReceipt {
   requestId: string;
@@ -14,7 +14,7 @@ export interface OpenRouterEvidence {
 interface OpenRouterResponse {
   id?: unknown;
   model?: unknown;
-  choices?: Array<{ message?: { content?: unknown } }>;
+  choices?: Array<{ finish_reason?: string; message?: { content?: unknown; refusal?: unknown } }>;
   error?: { message?: unknown };
 }
 
@@ -26,10 +26,12 @@ export function parseOpenRouterResponse(payload: OpenRouterResponse, configuredM
   return { content, receipt: { requestId, model, provider: 'openrouter' } };
 }
 
-export async function generateAssayReadinessEvidence(workflowSummary: string): Promise<OpenRouterEvidence> {
-  const apiKey = required('OPENROUTER_API_KEY', 20);
-  const model = required('OPENROUTER_MODEL');
-  const baseUrl = required('OPENROUTER_BASE_URL');
+export async function generateAssayReadinessEvidence(workflowSummary: string, signal?: AbortSignal): Promise<OpenRouterEvidence> {
+  const apiKey = String(process.env.OPENROUTER_API_KEY || '').trim();
+  const model = String(process.env.OPENROUTER_MODEL || '').trim();
+  const baseUrl = String(process.env.OPENROUTER_BASE_URL || '').replace(/\/+$/, '');
+  if (apiKey.length < 20 || !model || baseUrl !== 'https://openrouter.ai/api/v1') throw new DomainError(503, 'AI_NOT_CONFIGURED', 'Canonical OpenRouter configuration is required');
+  signal?.throwIfAborted();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
   try {
@@ -52,14 +54,17 @@ export async function generateAssayReadinessEvidence(workflowSummary: string): P
           { role: 'user', content: workflowSummary },
         ],
       }),
-      signal: controller.signal,
+      signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
     });
     const payload = await response.json() as OpenRouterResponse;
-    if (!response.ok) {
-      const providerMessage = typeof payload.error?.message === 'string' ? payload.error.message : `HTTP ${response.status}`;
-      throw new Error(`OpenRouter request failed: ${providerMessage}`);
-    }
+    signal?.throwIfAborted();
+    const choice = payload?.choices?.[0];
+    if (!response.ok || payload?.error || choice?.finish_reason !== 'stop' || choice.message?.refusal || typeof payload?.model !== 'string' || !payload.model.trim()) throw new DomainError(502, 'AI_PROVIDER_INVALID', 'OpenRouter did not return complete advisory evidence');
     return parseOpenRouterResponse(payload, model);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (error instanceof DomainError) throw error;
+    throw new DomainError(502, 'AI_PROVIDER_FAILED', 'OpenRouter could not complete the assay operations advisory');
   } finally {
     clearTimeout(timeout);
   }
